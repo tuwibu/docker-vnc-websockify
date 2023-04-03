@@ -31,9 +31,9 @@ const getContainers = async () => {
   containers.clear();
   const docker = new Docker();
   const list = await docker.listContainers();
-  console.log(JSON.stringify(list));
   const data = [];
   for (let item of list) {
+    const bridge = Object.keys(item.NetworkSettings.Networks)[0];
     data.push({
       id: item.Id.slice(0, 12),
       name: item.Names[0].replace('/', ''),
@@ -43,11 +43,11 @@ const getContainers = async () => {
         public: item.Ports[0].PublicPort,
         private: item.Ports[0].PrivatePort
       },
-      privateIp: item.NetworkSettings.Networks.bridge.IPAddress,
+      privateIp: item.NetworkSettings.Networks[bridge].IPAddress,
     });
     containers.set(item.Id.slice(0, 12), {
       name: item.Names[0].replace('/', ''),
-      privateIp: item.NetworkSettings.Networks.bridge.IPAddress,
+      privateIp: item.NetworkSettings.Networks[bridge].IPAddress,
       port: {
         public: item.Ports[0].PublicPort,
         private: item.Ports[0].PrivatePort  
