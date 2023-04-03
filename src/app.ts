@@ -31,6 +31,7 @@ const getContainers = async () => {
   containers.clear();
   const docker = new Docker();
   const list = await docker.listContainers();
+  console.log(JSON.stringify(list));
   const data = [];
   for (let item of list) {
     data.push({
