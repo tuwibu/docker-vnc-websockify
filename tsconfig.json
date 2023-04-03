@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "esModuleInterop": true,
+    "target": "ES6",
+    "noImplicitAny": true,
+    "outDir": "dist",
+    "baseUrl": "./",
+    "paths": {
+      "*": [
+        "node_modules/*"
+      ],
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/typings"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "ts-node": {
+    "transpileOnly": true,
+  },
+  "exclude": [
+    "dist",
+    "node_modules",
+    "public"
+  ]
+}
