@@ -3,8 +3,18 @@ import express from "express";
 import http from "http";
 import net from "net";
 import ws from "ws";
+import yargs from "yargs";
 
-const PORT = 8080;
+const argv: any = yargs.options({
+  port: {
+    alias: "p",
+    description: "Port to listen on",
+    type: "number",
+    default: 8080,
+  },
+}).argv;
+
+const PORT = argv.port || 8080;
 
 const app = express();
 const server = http.createServer(app);

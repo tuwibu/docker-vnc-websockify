@@ -17,7 +17,16 @@ const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const net_1 = __importDefault(require("net"));
 const ws_1 = __importDefault(require("ws"));
-const PORT = 8080;
+const yargs_1 = __importDefault(require("yargs"));
+const argv = yargs_1.default.options({
+    port: {
+        alias: "p",
+        description: "Port to listen on",
+        type: "number",
+        default: 8080,
+    },
+}).argv;
+const PORT = argv.port || 8080;
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 const containers = new Map();
