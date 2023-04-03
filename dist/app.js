@@ -34,6 +34,7 @@ const getContainers = () => __awaiter(void 0, void 0, void 0, function* () {
     containers.clear();
     const docker = new dockerode_1.default();
     const list = yield docker.listContainers();
+    console.log(JSON.stringify(list));
     const data = [];
     for (let item of list) {
         data.push({
