@@ -10,11 +10,11 @@ const argv: any = yargs.options({
     alias: "p",
     description: "Port to listen on",
     type: "number",
-    default: 8080,
+    default: 8081,
   },
 }).argv;
 
-const PORT = argv.port || 8080;
+const PORT = argv.port || 8081;
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +68,35 @@ app.get("/container", (req, res) => {
       status: 0,
       message: err.message
     })
+  });
+});
+
+app.get("/logs/:containerId", (req, res) => {
+  const docker = new Docker();
+  const container = docker.getContainer(req.params.containerId);
+  container.logs({
+    follow: true,
+    stdout: true,
+    stderr: true
+  }, (err, stream) => {
+    if (err) {
+      res.json({
+        status: 0,
+        message: err.message
+      });
+      return;
+    }
+    stream.setEncoding("utf8");
+    res.writeHead(200, {
+      "Content-Type": "text/plain",
+      "Transfer-Encoding": "chunked"
+    });
+    stream.on("data", (chunk) => {
+      res.write(chunk);
+    });
+    stream.on("end", () => {
+      res.end();
+    });
   });
 });
 
