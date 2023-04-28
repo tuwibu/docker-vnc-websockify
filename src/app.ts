@@ -100,11 +100,12 @@ app.get("/logs/:containerId", (req, res) => {
 app.get("/view/:containerId", (req, res) => {
   const docker = new Docker();
   const container = docker.getContainer(req.params.containerId);
+  const tail = req.query.tail || 100;
   container.logs({
     follow: false,
     stdout: true,
     stderr: false,
-    tail: 100
+    tail: Number(tail)
   }, (err, stream: any) => {
     if (err) {
       res.json({
