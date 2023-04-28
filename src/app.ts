@@ -80,7 +80,8 @@ app.get("/logs/:containerId", (req, res) => {
   container.logs({
     follow: false,
     stdout: true,
-    stderr: false
+    stderr: false,
+    tail: 100
   }, (err, stream: any) => {
     if (err) {
       res.json({
@@ -93,6 +94,26 @@ app.get("/logs/:containerId", (req, res) => {
       success: true,
       data: demuxOutput(stream).toString("utf-8")
     });
+  });
+});
+
+app.get("/view/:containerId", (req, res) => {
+  const docker = new Docker();
+  const container = docker.getContainer(req.params.containerId);
+  container.logs({
+    follow: false,
+    stdout: true,
+    stderr: false,
+    tail: 100
+  }, (err, stream: any) => {
+    if (err) {
+      res.json({
+        success: false,
+        message: err.message
+      });
+      return;
+    }
+    res.end(demuxOutput(stream).toString("utf-8"));
   });
 });
 

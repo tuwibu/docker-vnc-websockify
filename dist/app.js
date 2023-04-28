@@ -81,7 +81,8 @@ app.get("/logs/:containerId", (req, res) => {
     container.logs({
         follow: false,
         stdout: true,
-        stderr: false
+        stderr: false,
+        tail: 100
     }, (err, stream) => {
         if (err) {
             res.json({
@@ -94,6 +95,25 @@ app.get("/logs/:containerId", (req, res) => {
             success: true,
             data: (0, demuxStream_1.demuxOutput)(stream).toString("utf-8")
         });
+    });
+});
+app.get("/view/:containerId", (req, res) => {
+    const docker = new dockerode_1.default();
+    const container = docker.getContainer(req.params.containerId);
+    container.logs({
+        follow: false,
+        stdout: true,
+        stderr: false,
+        tail: 100
+    }, (err, stream) => {
+        if (err) {
+            res.json({
+                success: false,
+                message: err.message
+            });
+            return;
+        }
+        res.end((0, demuxStream_1.demuxOutput)(stream).toString("utf-8"));
     });
 });
 server.on("upgrade", (request, socket, head) => __awaiter(void 0, void 0, void 0, function* () {
