@@ -4,19 +4,22 @@ import http from "http";
 import net from "net";
 import ws from "ws";
 import yargs from "yargs";
+import { demuxOutput } from "./demuxStream";
+import cors from "cors";
 
 const argv: any = yargs.options({
   port: {
     alias: "p",
     description: "Port to listen on",
     type: "number",
-    default: 8081,
+    default: 8080,
   },
 }).argv;
 
-const PORT = argv.port || 8081;
+const PORT = argv.port || 8080;
 
 const app = express();
+app.use(cors());
 const server = http.createServer(app);
 const containers = new Map<string, {
   name: string,
@@ -57,7 +60,7 @@ const getContainers = async () => {
   return data;
 }
 
-app.get("/container", (req, res) => {
+app.get("/containers", (req, res) => {
   getContainers().then((data) => {
     res.json({
       status: 1,
@@ -75,27 +78,20 @@ app.get("/logs/:containerId", (req, res) => {
   const docker = new Docker();
   const container = docker.getContainer(req.params.containerId);
   container.logs({
-    follow: true,
+    follow: false,
     stdout: true,
-    stderr: true
-  }, (err, stream) => {
+    stderr: false
+  }, (err, stream: any) => {
     if (err) {
       res.json({
-        status: 0,
+        success: false,
         message: err.message
       });
       return;
     }
-    stream.setEncoding("utf8");
-    res.writeHead(200, {
-      "Content-Type": "text/plain",
-      "Transfer-Encoding": "chunked"
-    });
-    stream.on("data", (chunk) => {
-      res.write(chunk);
-    });
-    stream.on("end", () => {
-      res.end();
+    res.json({
+      success: true,
+      data: demuxOutput(stream).toString("utf-8")
     });
   });
 });
@@ -114,8 +110,6 @@ server.on("upgrade", async(request, socket, head) => {
     targets.push({
       host: "localhost",
       port: item[1].port.public,
-      // host: item[1].privateIp,
-      // port: item[1].port.private,
       connection: {},
       path: `/${item[0]}`,
     });
@@ -130,24 +124,20 @@ server.on("upgrade", async(request, socket, head) => {
       const remoteAddress = req.socket.remoteAddress;
       const connection = net.createConnection(target.port, target.host);
       connection.on("connect", () => {
-        console.log(`${remoteAddress} -> Connected to target on ${target.host}:${target.port}`);
         target.connection[cid] = connection;
       });
       connection.on("data", (data) => {
         try {
           ws.send(data);
         } catch (err) {
-          console.log(`${remoteAddress} -> Client closed, cleaning up target`);
           connection.end();
         }
       });
       connection.on("end", () => {
-        console.log(`${remoteAddress} -> Target disconnected`);
         ws.close();
         delete target.connection[cid];
       });
       connection.on("error", (err) => {
-        console.log(`${remoteAddress} -> Connection error: ${err.message}`);
         connection.destroy();
         ws.close();
         delete target.connection[cid];
@@ -156,12 +146,10 @@ server.on("upgrade", async(request, socket, head) => {
         connection.write(data);
       });
       ws.on("close", () => {
-        console.log(`${remoteAddress} -> Client disconnected`);
         connection.end();
       });
     });
     if(request.url == target.path){
-      console.log("CONNECT");
       target.ws.handleUpgrade(request, socket, head, (ws) => {
         target.ws.emit('connection', ws, request);
       });

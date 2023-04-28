@@ -18,6 +18,8 @@ const http_1 = __importDefault(require("http"));
 const net_1 = __importDefault(require("net"));
 const ws_1 = __importDefault(require("ws"));
 const yargs_1 = __importDefault(require("yargs"));
+const demuxStream_1 = require("./demuxStream");
+const cors_1 = __importDefault(require("cors"));
 const argv = yargs_1.default.options({
     port: {
         alias: "p",
@@ -28,6 +30,7 @@ const argv = yargs_1.default.options({
 }).argv;
 const PORT = argv.port || 8080;
 const app = (0, express_1.default)();
+app.use((0, cors_1.default)());
 const server = http_1.default.createServer(app);
 const containers = new Map();
 const getContainers = () => __awaiter(void 0, void 0, void 0, function* () {
@@ -59,7 +62,7 @@ const getContainers = () => __awaiter(void 0, void 0, void 0, function* () {
     }
     return data;
 });
-app.get("/container", (req, res) => {
+app.get("/containers", (req, res) => {
     getContainers().then((data) => {
         res.json({
             status: 1,
@@ -72,6 +75,27 @@ app.get("/container", (req, res) => {
         });
     });
 });
+app.get("/logs/:containerId", (req, res) => {
+    const docker = new dockerode_1.default();
+    const container = docker.getContainer(req.params.containerId);
+    container.logs({
+        follow: false,
+        stdout: true,
+        stderr: false
+    }, (err, stream) => {
+        if (err) {
+            res.json({
+                success: false,
+                message: err.message
+            });
+            return;
+        }
+        res.json({
+            success: true,
+            data: (0, demuxStream_1.demuxOutput)(stream).toString("utf-8")
+        });
+    });
+});
 server.on("upgrade", (request, socket, head) => __awaiter(void 0, void 0, void 0, function* () {
     yield getContainers();
     const targets = [];
@@ -80,8 +104,6 @@ server.on("upgrade", (request, socket, head) => __awaiter(void 0, void 0, void 0
         targets.push({
             host: "localhost",
             port: item[1].port.public,
-            // host: item[1].privateIp,
-            // port: item[1].port.private,
             connection: {},
             path: `/${item[0]}`,
         });
@@ -96,7 +118,6 @@ server.on("upgrade", (request, socket, head) => __awaiter(void 0, void 0, void 0
             const remoteAddress = req.socket.remoteAddress;
             const connection = net_1.default.createConnection(target.port, target.host);
             connection.on("connect", () => {
-                console.log(`${remoteAddress} -> Connected to target on ${target.host}:${target.port}`);
                 target.connection[cid] = connection;
             });
             connection.on("data", (data) => {
@@ -104,17 +125,14 @@ server.on("upgrade", (request, socket, head) => __awaiter(void 0, void 0, void 0
                     ws.send(data);
                 }
                 catch (err) {
-                    console.log(`${remoteAddress} -> Client closed, cleaning up target`);
                     connection.end();
                 }
             });
             connection.on("end", () => {
-                console.log(`${remoteAddress} -> Target disconnected`);
                 ws.close();
                 delete target.connection[cid];
             });
             connection.on("error", (err) => {
-                console.log(`${remoteAddress} -> Connection error: ${err.message}`);
                 connection.destroy();
                 ws.close();
                 delete target.connection[cid];
@@ -123,12 +141,10 @@ server.on("upgrade", (request, socket, head) => __awaiter(void 0, void 0, void 0
                 connection.write(data);
             });
             ws.on("close", () => {
-                console.log(`${remoteAddress} -> Client disconnected`);
                 connection.end();
             });
         });
         if (request.url == target.path) {
-            console.log("CONNECT");
             target.ws.handleUpgrade(request, socket, head, (ws) => {
                 target.ws.emit('connection', ws, request);
             });
